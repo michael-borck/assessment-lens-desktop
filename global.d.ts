@@ -1,8 +1,9 @@
 // The preload bridge surface, as seen by the renderer.
+// Deliberately NO token here: the bearer token lives in main, and the renderer
+// reaches the sidecar only through main's authenticated proxy (`api`).
 export interface SidecarStatus {
   phase: "not-started" | "installing" | "starting" | "ready" | "unreachable" | "crashed";
   url: string;
-  token: string;
 }
 export interface OllamaProgress {
   status: string;

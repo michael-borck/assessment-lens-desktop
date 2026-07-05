@@ -17,8 +17,7 @@ contextBridge.exposeInMainWorld("lens", {
 
   // Sidecar (the engine)
   sidecarStatus: () => ipcRenderer.invoke("sidecar:status"),
-  onSidecarStatus: (cb: Cb<{ phase: string; url: string; token: string }>) =>
-    on("sidecar:status", cb),
+  onSidecarStatus: (cb: Cb<{ phase: string; url: string }>) => on("sidecar:status", cb),
   onSidecarLog: (cb: Cb<string>) => on("sidecar:log", cb),
   // Proxied JSON call to the sidecar HTTP API (main holds the token).
   api: (method: string, path: string, body?: unknown) =>

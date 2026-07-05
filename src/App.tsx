@@ -8,7 +8,7 @@ import { OllamaSetupCard } from "./components/OllamaSetupCard";
 type RunState = "idle" | "running" | "done" | "failed";
 
 export function App() {
-  const [status, setStatus] = useState<SidecarStatus>({ phase: "not-started", url: "", token: "" });
+  const [status, setStatus] = useState<SidecarStatus>({ phase: "not-started", url: "" });
   const [setupPhase, setSetupPhase] = useState("");
   const [rubric, setRubric] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<string | null>(null);
@@ -18,6 +18,7 @@ export function App() {
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollFailures = useRef(0);
 
   useEffect(() => {
     window.lens.sidecarStatus().then(setStatus);
@@ -46,8 +47,29 @@ export function App() {
       return;
     }
     const { id } = res.body as { id: string };
+    pollFailures.current = 0;
     poll.current = setInterval(async () => {
-      const s = await window.lens.api("GET", `/assessments/${id}`);
+      // Tolerate transient blips (engine restart, brief unreachability) but
+      // give up after ~10 s of consecutive failures instead of polling forever.
+      const fail = () => {
+        if (++pollFailures.current >= 20) {
+          clearInterval(poll.current!);
+          setError("lost contact with the engine — check its status and try again");
+          setRun("failed");
+        }
+      };
+      let s;
+      try {
+        s = await window.lens.api("GET", `/assessments/${id}`);
+      } catch {
+        fail();
+        return;
+      }
+      if (s.status !== 200) {
+        fail();
+        return;
+      }
+      pollFailures.current = 0;
       const body = s.body as { status: RunState; progress: string[]; error: string };
       setProgress(body.progress ?? []);
       if (body.status === "done") {

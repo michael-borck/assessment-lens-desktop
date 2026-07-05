@@ -4,7 +4,7 @@
  * localhost HTTP API (URL + token handed over via IPC) and drives setup/Ollama
  * through the channels below.
  */
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import http from "node:http";
 import path from "node:path";
@@ -40,6 +40,22 @@ function createWindow(): void {
       sandbox: false, // preload needs limited node; renderer stays isolated
     },
   });
+  // External links (e.g. ollama.com/download) open in the OS browser, never in
+  // a new Electron window — a child window would inherit the preload bridge and
+  // hand a remote page the sidecar IPC surface.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("https:")) void shell.openExternal(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (e, url) => {
+    const devUrl = process.env.ELECTRON_RENDERER_URL;
+    const allowed = url.startsWith("file:") || (isDev && devUrl && url.startsWith(devUrl));
+    if (!allowed) {
+      e.preventDefault();
+      if (url.startsWith("https:")) void shell.openExternal(url);
+    }
+  });
+
   // electron-vite serves the renderer in dev; loads the built file in prod.
   if (isDev && process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else win.loadFile(path.join(__dirname, "../renderer/index.html"));
@@ -56,7 +72,7 @@ async function boot(): Promise<void> {
   if (!isInstalled(p)) {
     send("setup:phase", "installing");
     try {
-      await runFirstRun(p, CONFIG.sidecarPipSpec, CONFIG.models ?? [], (line) =>
+      await runFirstRun(p, CONFIG.sidecarPipSpecs, CONFIG.models ?? [], (line) =>
         send("setup:log", line),
       );
     } catch (e) {
@@ -71,6 +87,8 @@ async function boot(): Promise<void> {
     serveCommand: CONFIG.serveCommand,
     healthPath: CONFIG.healthPath,
     defaultPort: CONFIG.defaultPort,
+    authTokenEnv: CONFIG.authTokenEnv,
+    extraEnv: CONFIG.sidecarEnv,
   });
   sidecar.on("status", (s) => send("sidecar:status", s));
   sidecar.on("log", (l: string) => send("sidecar:log", l));
@@ -136,12 +154,16 @@ function registerIpc(): void {
     productName: CONFIG.productName,
     ollama: CONFIG.ollama,
   }));
+  // `win` can be null (macOS: all windows closed, app still running) — fall
+  // back to the window-less dialog form instead of crashing on `win!`.
   ipcMain.handle("dialog:pickDir", async () => {
-    const r = await dialog.showOpenDialog(win!, { properties: ["openDirectory"] });
+    const opts = { properties: ["openDirectory"] as "openDirectory"[] };
+    const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     return r.canceled ? null : r.filePaths[0];
   });
   ipcMain.handle("dialog:pickFile", async (_e, filters?: { name: string; extensions: string[] }[]) => {
-    const r = await dialog.showOpenDialog(win!, { properties: ["openFile"], filters });
+    const opts = { properties: ["openFile"] as "openFile"[], filters };
+    const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     return r.canceled ? null : r.filePaths[0];
   });
 }
@@ -150,17 +172,29 @@ async function shutdown(): Promise<void> {
   if (sidecar) await sidecar.stop();
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  registerIpc();
-  void boot();
-  if (!isDev) {
-    setTimeout(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 30_000);
-  }
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Two instances would race the first-run install and double-spawn sidecars.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
   });
-});
+
+  app.whenReady().then(() => {
+    createWindow();
+    registerIpc();
+    void boot();
+    if (!isDev) {
+      setTimeout(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 30_000);
+    }
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 app.on("before-quit", (e) => {
   e.preventDefault();
