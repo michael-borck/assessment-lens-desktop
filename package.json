@@ -12,7 +12,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "package": "electron-vite build && electron-builder --config electron-builder.config.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prototype": "vite --config vite.prototype.config.ts",
+    "app-dev": "vite --config vite.app.config.ts"
   },
   "dependencies": {
     "electron-updater": "^6.3.0"
