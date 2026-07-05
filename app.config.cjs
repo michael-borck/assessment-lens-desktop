@@ -20,7 +20,7 @@ module.exports = {
   // sentence-transformers/torch — the installer forces CPU-only torch).
   // Pin the lens per app release; bump deliberately with the app.
   sidecarPipSpecs: [
-    "assessment-lens[serve,analysers,distinctiveness,llm]==0.5.1",
+    "assessment-lens[serve,analysers,distinctiveness,llm]==0.5.2",
     "auto-analyser", // the router bundle-analyser shells out to
     "document-analyser[embeddings]", // reports, essays (the universal deliverable)
     "code-analyser[embeddings]",
