@@ -1,6 +1,6 @@
 {
   "name": "assessment-lens-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mark a cohort with the analyser family \u2014 observations, not grades. Fully local; private by design.",
   "author": {
     "name": "Michael Borck",
