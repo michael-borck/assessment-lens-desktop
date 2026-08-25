@@ -47,6 +47,7 @@ npm run package  # build + electron-builder installers
 Scaffolded from the template and **verified to build** (typecheck + electron-vite
 build). The full first-run install + live GUI run still need per-OS verification
 (see the family [desktop design doc](https://michael-borck.github.io/lens-analysers/docs/DESKTOP-APPS-DESIGN.html)).
-Note: `app.config.cjs` installs `assessment-lens` from PyPI on first run — it needs
-the **0.4.0 release** (HTTP API + local provider), not yet published at time of
-scaffolding.
+`app.config.cjs` installs `assessment-lens==0.5.2` from PyPI on first run
+(published). The app shell + screens are Phase 1 of the
+[product plan](docs/PRODUCT-PLAN.md) — they currently render mock data shaped
+like the engine's responses; wiring them to the sidecar is next.
