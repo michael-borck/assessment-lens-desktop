@@ -38,7 +38,7 @@ module.exports = {
     // Heavy first-run (the installer pins CPU-only torch); speech/whisper models
     // download once on first transcription:
     "speech-analyser", // audio: mp3/wav/m4a/ogg/flac/aac/opus
-    "video-analyser", // video: mp4/mov/avi/webm/mkv (pulls speech + image[ml,ocr,api])
+    "video-analyser>=0.13.0", // video: mp4/mov/avi/webm/mkv (needs 0.13.0's contract --json mode)
     "image-analyser", // images: png/jpg/gif/bmp/tiff/webp (also transitively via video)
     "records-analyser", // spreadsheets + data: xlsx/csv/tsv/json/yaml/xml — the router's target for .xlsx/.csv
     "diagram-analyser", // diagrams: mmd/mermaid/puml/plantuml/dot/gv/drawio
