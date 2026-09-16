@@ -49,10 +49,10 @@ export interface PullProgress {
 /** Pull `model`, streaming NDJSON progress to `onProgress`. Resolves on success. */
 export function pull(
   model: string,
-  curatedModel: string,
+  allowedModels: string[],
   onProgress: (p: PullProgress) => void,
 ): Promise<void> {
-  if (model !== curatedModel) {
+  if (!allowedModels.includes(model)) {
     return Promise.reject(new Error(`refusing to pull non-curated model: ${model}`));
   }
   return new Promise((resolve, reject) => {

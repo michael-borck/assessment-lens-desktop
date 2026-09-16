@@ -9,9 +9,21 @@ export interface OllamaProgress {
   status: string;
   percent: number | null;
 }
+export interface OllamaModelTier {
+  id: string;
+  label: string;
+  sizeGB: number;
+  note: string;
+}
 export interface AppConfig {
   productName: string;
-  ollama: { recommendedModel: string; recommendedSizeGB: number };
+  ollama: { models: Record<string, OllamaModelTier>; defaultModel: string };
+  system: {
+    platform: NodeJS.Platform;
+    totalMemGB: number;
+    recommendedTier: "small" | "large";
+  };
+  settings: { ollamaModel?: string };
 }
 
 export interface ApiResponse {
@@ -19,9 +31,27 @@ export interface ApiResponse {
   body: unknown;
 }
 
+export interface RubricInfo {
+  assignment: string;
+  component: string | null;
+  criteria: { id: string; description: string; maxMark: number | null }[];
+  deliverables: { id: string; description: string }[];
+}
+
+export interface LastRun {
+  key: string;
+  rubricPath: string;
+  submissionsPath: string;
+  llm: boolean;
+  rubric: RubricInfo;
+  criteriaMax: Record<string, number>;
+  result: unknown;
+}
+
 export interface LensBridge {
   config(): Promise<AppConfig>;
   sidecarStatus(): Promise<SidecarStatus>;
+  restartEngine(): Promise<boolean>;
   onSidecarStatus(cb: (s: SidecarStatus) => void): () => void;
   onSidecarLog(cb: (line: string) => void): () => void;
   api(method: string, path: string, body?: unknown): Promise<ApiResponse>;
@@ -33,6 +63,16 @@ export interface LensBridge {
   ollamaDetect(): Promise<{ running: boolean; models: string[] }>;
   ollamaPull(model: string): Promise<void>;
   onOllamaProgress(cb: (p: OllamaProgress) => void): () => void;
+  ollamaInstall(): Promise<{ ok: boolean; error?: string }>;
+  onOllamaInstallProgress(cb: (p: OllamaProgress) => void): () => void;
+  setOllamaModel(modelId: string): Promise<boolean>;
+  parseRubric(path: string): Promise<RubricInfo>;
+  loadMarks(key: string): Promise<unknown>;
+  saveMarks(key: string, sheet: unknown): Promise<boolean>;
+  loadLastRun(): Promise<LastRun | null>;
+  saveLastRun(data: LastRun): Promise<boolean>;
+  exportCsv(defaultName: string, csv: string): Promise<string | null>;
+  openPath(path: string): Promise<string>;
 }
 
 declare global {

@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("lens", {
 
   // Sidecar (the engine)
   sidecarStatus: () => ipcRenderer.invoke("sidecar:status"),
+  restartEngine: () => ipcRenderer.invoke("sidecar:restart"),
   onSidecarStatus: (cb: Cb<{ phase: string; url: string }>) => on("sidecar:status", cb),
   onSidecarLog: (cb: Cb<string>) => on("sidecar:log", cb),
   // Proxied JSON call to the sidecar HTTP API (main holds the token).
@@ -38,4 +39,18 @@ contextBridge.exposeInMainWorld("lens", {
   ollamaPull: (model: string) => ipcRenderer.invoke("ollama:pull", model),
   onOllamaProgress: (cb: Cb<{ status: string; percent: number | null }>) =>
     on("ollama:progress", cb),
+  ollamaInstall: () => ipcRenderer.invoke("ollama:install"),
+  onOllamaInstallProgress: (cb: Cb<{ status: string; percent: number | null }>) =>
+    on("ollama:install-progress", cb),
+  setOllamaModel: (modelId: string) => ipcRenderer.invoke("settings:setModel", modelId),
+
+  // Marking workflow
+  parseRubric: (path: string) => ipcRenderer.invoke("rubric:parse", path),
+  loadMarks: (key: string) => ipcRenderer.invoke("marks:load", key),
+  saveMarks: (key: string, sheet: unknown) => ipcRenderer.invoke("marks:save", key, sheet),
+  loadLastRun: () => ipcRenderer.invoke("lastrun:load"),
+  saveLastRun: (data: unknown) => ipcRenderer.invoke("lastrun:save", data),
+  exportCsv: (defaultName: string, csv: string) =>
+    ipcRenderer.invoke("export:csv", defaultName, csv),
+  openPath: (path: string) => ipcRenderer.invoke("open:path", path),
 });

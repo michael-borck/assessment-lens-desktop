@@ -6,16 +6,25 @@
  */
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { autoUpdater } from "electron-updater";
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
+import { parse as parseYaml } from "yaml";
 
 import * as ollama from "./ollama";
+import { installOllama, type InstallProgress } from "./ollama-install";
 import { FirstRunPaths, isInstalled, runFirstRun, venvDir } from "./first-run";
+import { loadSettings, saveSettings } from "./settings";
 import { SidecarManager } from "./sidecar-manager";
 // Bundled at build time (single source of truth shared with electron-builder).
 import CONFIG from "../app.config.cjs";
 
 const isDev = !app.isPackaged;
+// Dev affordance: LENS_DEV_VENV=<path> reuses an existing engine venv (e.g. a
+// checkout of assessment-lens with [serve,analysers] installed) instead of
+// running the multi-minute first-run install.
+const DEV_VENV = isDev ? process.env.LENS_DEV_VENV : undefined;
 let win: BrowserWindow | null = null;
 let sidecar: SidecarManager | null = null;
 
@@ -65,11 +74,56 @@ function send(channel: string, payload: unknown): void {
   win?.webContents.send(channel, payload);
 }
 
+/** The narrate/draft model env, from the user's persisted tier choice. */
+function modelEnv(): NodeJS.ProcessEnv {
+  const chosen = loadSettings().ollamaModel ?? CONFIG.ollama.defaultModel;
+  return {
+    ASSESSMENT_LENS_NARRATE_MODEL: chosen,
+    ASSESSMENT_LENS_DRAFT_MODEL: chosen,
+  };
+}
+
+/** Restart the sidecar so a new model choice takes effect immediately. */
+async function restartSidecar(): Promise<void> {
+  const p = paths();
+  if (!sidecar) return;
+  await sidecar.stop();
+  sidecar = new SidecarManager({
+    venvDir: DEV_VENV ?? venvDir(p),
+    cwd: p.runtimeDir,
+    serveCommand: CONFIG.serveCommand,
+    healthPath: CONFIG.healthPath,
+    defaultPort: CONFIG.defaultPort,
+    authTokenEnv: CONFIG.authTokenEnv,
+    extraEnv: { ...CONFIG.sidecarEnv, ...modelEnv() },
+  });
+  sidecar.on("status", (s) => send("sidecar:status", s));
+  sidecar.on("log", (l: string) => send("sidecar:log", l));
+  await sidecar.start();
+}
+
+/**
+ * The router (auto-analyser) defaults every specialist to an HTTP service on
+ * localhost:800x — a dev-machine convention. This app ships a fully-local
+ * engine: write a config beside the sidecar's cwd that routes to the bundled
+ * CLI members instead. Derived from app.config.sidecarPipSpecs so the two
+ * never drift.
+ */
+function writeRouterConfig(dir: string): void {
+  const members = CONFIG.sidecarPipSpecs
+    .map((s) => s.split(/[[=]/)[0].trim())
+    .filter((n) => n.endsWith("-analyser") && n !== "auto-analyser");
+  const yaml = ["# Written by Assessment Lens — routes to the bundled local CLIs.", "analysers:", ...members.map((m) => `  ${m}: { type: cli, command: ${m} }`), ""].join("\n");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "auto-analyser.yaml"), yaml);
+}
+
 async function boot(): Promise<void> {
   const p = paths();
 
   // 1. First run: install the engine, streaming progress to the renderer modal.
-  if (!isInstalled(p)) {
+  //    (Skipped entirely under LENS_DEV_VENV — see DEV_VENV above.)
+  if (!DEV_VENV && !isInstalled(p)) {
     send("setup:phase", "installing");
     try {
       await runFirstRun(p, CONFIG.sidecarPipSpecs, CONFIG.models ?? [], (line) =>
@@ -80,15 +134,17 @@ async function boot(): Promise<void> {
       return;
     }
   }
+  writeRouterConfig(p.runtimeDir);
 
   // 2. Start + supervise the sidecar.
   sidecar = new SidecarManager({
-    venvDir: venvDir(p),
+    venvDir: DEV_VENV ?? venvDir(p),
+    cwd: p.runtimeDir,
     serveCommand: CONFIG.serveCommand,
     healthPath: CONFIG.healthPath,
     defaultPort: CONFIG.defaultPort,
     authTokenEnv: CONFIG.authTokenEnv,
-    extraEnv: CONFIG.sidecarEnv,
+    extraEnv: { ...CONFIG.sidecarEnv, ...modelEnv() },
   });
   sidecar.on("status", (s) => send("sidecar:status", s));
   sidecar.on("log", (l: string) => send("sidecar:log", l));
@@ -146,14 +202,54 @@ function registerIpc(): void {
   ipcMain.handle("sidecar:request", (_e, method: string, p: string, body?: unknown) =>
     sidecarRequest(method, p, body),
   );
+  // Manual restart (renderer offers it when the engine crashed or went offline).
+  ipcMain.handle("sidecar:restart", async () => {
+    try {
+      await restartSidecar();
+      return true;
+    } catch (e) {
+      send("setup:error", String(e));
+      return false;
+    }
+  });
   ipcMain.handle("ollama:detect", () => ollama.detect());
   ipcMain.handle("ollama:pull", (_e, model: string) =>
-    ollama.pull(model, CONFIG.ollama.recommendedModel, (prog) => send("ollama:progress", prog)),
+    ollama.pull(
+      model,
+      Object.values(CONFIG.ollama.models).map((m) => (m as { id: string }).id),
+      (prog) => send("ollama:progress", prog),
+    ),
   );
-  ipcMain.handle("app:config", () => ({
-    productName: CONFIG.productName,
-    ollama: CONFIG.ollama,
-  }));
+  // One-off install of Ollama itself (per-OS), streaming progress to the card.
+  ipcMain.handle("ollama:install", async () => {
+    try {
+      await installOllama((p: InstallProgress) => send("ollama:install-progress", p));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+  ipcMain.handle("app:config", () => {
+    const totalMemGB = os.totalmem() / 1024 ** 3;
+    return {
+      productName: CONFIG.productName,
+      ollama: { models: CONFIG.ollama.models, defaultModel: CONFIG.ollama.defaultModel },
+      system: {
+        platform: process.platform,
+        totalMemGB: Math.round(totalMemGB),
+        recommendedTier: totalMemGB >= 16 ? "large" : "small",
+      },
+      settings: loadSettings(),
+    };
+  });
+  // Model choice: persist + restart the engine so narration uses it now.
+  ipcMain.handle("settings:setModel", async (_e, modelId: string) => {
+    const allowed = Object.values(CONFIG.ollama.models).map((m) => (m as { id: string }).id);
+    if (!allowed.includes(modelId)) throw new Error(`non-curated model: ${modelId}`);
+    saveSettings({ ollamaModel: modelId });
+    await restartSidecar();
+    return true;
+  });
   // `win` can be null (macOS: all windows closed, app still running) — fall
   // back to the window-less dialog form instead of crashing on `win!`.
   ipcMain.handle("dialog:pickDir", async () => {
@@ -166,6 +262,73 @@ function registerIpc(): void {
     const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     return r.canceled ? null : r.filePaths[0];
   });
+
+  // --- Marking workflow -------------------------------------------------------
+  // Rubric file → criterion list (+ optional per-criterion max_mark; the engine
+  // ignores that key, so a rubric can carry it without breaking `assess`).
+  ipcMain.handle("rubric:parse", (_e, rubricPath: string) => {
+    const text = fs.readFileSync(rubricPath, "utf8");
+    const doc: unknown = rubricPath.endsWith(".json") ? JSON.parse(text) : parseYaml(text);
+    const d = (doc ?? {}) as Record<string, unknown>;
+    const list = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
+    const num = (v: unknown): number | null => (typeof v === "number" && v > 0 ? v : null);
+    return {
+      assignment: typeof d.assignment === "string" ? d.assignment : "Assessment",
+      component: typeof d.component === "string" ? d.component : null,
+      criteria: list(d.rubric).map((c, i) => ({
+        id: String(c.id ?? `criterion-${i + 1}`),
+        description: typeof c.description === "string" ? c.description : "",
+        maxMark: num(c.max_mark),
+      })),
+      deliverables: list(d.expected_deliverables).map((x, i) => ({
+        id: String(x.id ?? `deliverable-${i + 1}`),
+        description: typeof x.description === "string" ? x.description : "",
+      })),
+    };
+  });
+
+  // Marks sheets: one JSON per run, keyed by a stable run key (renderer-built).
+  const marksFile = (key: string) =>
+    path.join(app.getPath("userData"), "marks", `${key.replace(/[^a-zA-Z0-9_-]/g, "")}.json`);
+  ipcMain.handle("marks:load", (_e, key: string) => {
+    try {
+      return JSON.parse(fs.readFileSync(marksFile(key), "utf8"));
+    } catch {
+      return null;
+    }
+  });
+  ipcMain.handle("marks:save", (_e, key: string, sheet: unknown) => {
+    fs.mkdirSync(path.dirname(marksFile(key)), { recursive: true });
+    fs.writeFileSync(marksFile(key), JSON.stringify(sheet, null, 2));
+    return true;
+  });
+
+  // Last-run snapshot so a restart (or crash) resumes the cohort without a
+  // re-run — the sidecar's run registry is in-memory and process-local.
+  const lastRunFile = () => path.join(app.getPath("userData"), "last-run.json");
+  ipcMain.handle("lastrun:load", () => {
+    try {
+      return JSON.parse(fs.readFileSync(lastRunFile(), "utf8"));
+    } catch {
+      return null;
+    }
+  });
+  ipcMain.handle("lastrun:save", (_e, data: unknown) => {
+    fs.writeFileSync(lastRunFile(), JSON.stringify(data));
+    return true;
+  });
+
+  // Export: save dialog + write (renderer builds the CSV text).
+  ipcMain.handle("export:csv", async (_e, defaultName: string, csv: string) => {
+    const opts = { defaultPath: defaultName, filters: [{ name: "CSV", extensions: ["csv"] }] };
+    const r = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
+    if (r.canceled || !r.filePath) return null;
+    fs.writeFileSync(r.filePath, csv, "utf8");
+    return r.filePath;
+  });
+
+  // Hand-off: open a submission folder (or any path) in the OS file manager.
+  ipcMain.handle("open:path", (_e, p: string) => shell.openPath(p));
 }
 
 async function shutdown(): Promise<void> {

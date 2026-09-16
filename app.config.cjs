@@ -4,7 +4,14 @@
 
 // One local model, referenced everywhere it matters (Ollama pull + engine env)
 // so the model the app pulls is the model the engine narrates with.
-const LOCAL_MODEL = "llama3.2:3b";
+// Tiers verified against ollama.com/library/qwen3.5 (2026-09) — bump IDs as the
+// catalogue evolves. The tier the engine actually uses is the user's choice
+// (persisted in settings); main injects it into the sidecar env at spawn.
+const OLLAMA_MODELS = {
+  small: { id: "qwen3.5:2b", label: "Qwen3.5 · 2B", sizeGB: 1.6, note: "lighter — fine on 8–16 GB machines" },
+  large: { id: "qwen3.5:4b", label: "Qwen3.5 · 4B", sizeGB: 2.9, note: "better prose — needs ~16 GB" },
+};
+const LOCAL_MODEL = OLLAMA_MODELS.small.id;
 
 module.exports = {
   // Identity
@@ -26,6 +33,15 @@ module.exports = {
     "code-analyser[embeddings]",
     "conversation-analyser[embeddings]", // AI-chat transcripts
     "reflection-analyser[embeddings]", // reflective journals
+    // Broader submission coverage — auto-analyser routes by extension, so an
+    // analyser must be installed here for its file types to produce signals.
+    // Heavy first-run (the installer pins CPU-only torch); speech/whisper models
+    // download once on first transcription:
+    "speech-analyser", // audio: mp3/wav/m4a/ogg/flac/aac/opus
+    "video-analyser", // video: mp4/mov/avi/webm/mkv (pulls speech + image[ml,ocr,api])
+    "image-analyser", // images: png/jpg/gif/bmp/tiff/webp (also transitively via video)
+    "records-analyser", // spreadsheets + data: xlsx/csv/tsv/json/yaml/xml — the router's target for .xlsx/.csv
+    "diagram-analyser", // diagrams: mmd/mermaid/puml/plantuml/dot/gv/drawio
   ],
   // Console script the installed package exposes; {PORT}/{HOST} are substituted,
   // resolved against the venv's bin/ dir. (e.g. `assessment-lens serve ...`)
@@ -38,11 +54,10 @@ module.exports = {
   // session and keeps it out of the renderer.
   authTokenEnv: "ASSESSMENT_LENS_AUTH_TOKEN",
   // Extra env for the spawned engine. Privacy-first: narration runs against the
-  // local Ollama, never a cloud provider, and uses the model curated below.
+  // local Ollama, never a cloud provider. The narrate/draft model is injected
+  // per-session from the user's persisted choice (see main.ts settings).
   sidecarEnv: {
     ASSESSMENT_LENS_PROVIDER: "ollama",
-    ASSESSMENT_LENS_NARRATE_MODEL: LOCAL_MODEL,
-    ASSESSMENT_LENS_DRAFT_MODEL: LOCAL_MODEL,
   },
 
   // --- Models (fully-offline) ------------------------------------------------
@@ -55,7 +70,7 @@ module.exports = {
 
   // --- Local LLM (Ollama) ----------------------------------------------------
   ollama: {
-    recommendedModel: LOCAL_MODEL, // curated default; pulled in-app with progress
-    recommendedSizeGB: 2.0,
+    models: OLLAMA_MODELS, // curated tiers, offered by machine size
+    defaultModel: LOCAL_MODEL, // used until the user picks a tier
   },
 };

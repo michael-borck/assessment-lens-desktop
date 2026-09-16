@@ -1,6 +1,6 @@
 {
   "name": "assessment-lens-desktop",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Mark a cohort with the analyser family \u2014 observations, not grades. Fully local; private by design.",
   "author": {
     "name": "Michael Borck",
@@ -17,7 +17,8 @@
     "app-dev": "vite --config vite.app.config.ts"
   },
   "dependencies": {
-    "electron-updater": "^6.3.0"
+    "electron-updater": "^6.3.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@electron/notarize": "^2.5.0",

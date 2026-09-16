@@ -21,6 +21,10 @@ export interface SidecarConfig {
   defaultPort: number;
   authTokenEnv: string; // env var the member reads its bearer token from, e.g. "ASSESSMENT_LENS_AUTH_TOKEN"
   extraEnv?: NodeJS.ProcessEnv;
+  // Working directory for the engine (and everything it shells out to). The
+  // router (auto-analyser) reads ./auto-analyser.yaml relative to cwd — point
+  // this at the dir where the host wrote that config.
+  cwd?: string;
 }
 
 const HOST = "127.0.0.1";
@@ -87,9 +91,15 @@ export class SidecarManager extends EventEmitter {
     this.setPhase("starting");
     this.proc = spawn(cmd, args, {
       stdio: ["ignore", "pipe", "pipe"],
+      cwd: this.cfg.cwd,
       env: {
         ...process.env,
         ...this.cfg.extraEnv,
+        // The engine shells out to sibling CLIs (bundle-analyser & co.). Resolve
+        // them from THIS venv first — a stale same-named shim elsewhere on PATH
+        // would otherwise win and the engine would analyse nothing.
+        PATH: `${path.dirname(cmd)}${path.delimiter}${process.env.PATH ?? ""}`,
+        VIRTUAL_ENV: this.cfg.venvDir,
         // The member gates everything but /health + /manifest on this token
         // (lens-contract add_auth reads {PREFIX}_AUTH_TOKEN; name from config).
         [this.cfg.authTokenEnv]: this.token,
