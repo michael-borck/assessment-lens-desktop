@@ -59,6 +59,7 @@ jobs:
       # electron-builder's own buggy auto-notarize wrapper doesn't also fire.
       - name: Build & publish (macOS)
         if: matrix.os == 'macos-latest'
+        shell: bash
         # An UNSET CSC_LINK secret arrives as an empty string, which
         # electron-builder treats as a certificate file path and dies on
         # ("not a file"). Unset it and disable identity discovery so the build
@@ -81,6 +82,7 @@ jobs:
 
       - name: Build & publish (Windows)
         if: matrix.os == 'windows-latest'
+        shell: bash  # default pwsh can't read $PUBLISH
         run: npx electron-builder --win --config electron-builder.config.js --publish "$PUBLISH"
         env:
           PUBLISH: ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
@@ -88,6 +90,7 @@ jobs:
 
       - name: Build & publish (Linux)
         if: matrix.os == 'ubuntu-latest'
+        shell: bash
         run: npx electron-builder --linux --config electron-builder.config.js --publish "$PUBLISH"
         env:
           PUBLISH: ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
