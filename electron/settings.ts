@@ -9,6 +9,9 @@ import { app } from "electron";
 
 export interface Settings {
   ollamaModel?: string;
+  // Heuristic cascade passes (chat/journal auto-detection + provenance
+  // metadata reads). Default on; the marker sees the labelled origin.
+  heuristics?: boolean;
 }
 
 const file = () => path.join(app.getPath("userData"), "settings.json");

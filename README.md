@@ -55,7 +55,15 @@ bundled for them:
 | Spreadsheets / data | `.xlsx` `.csv` `.tsv` `.json` `.yaml` `.xml` … | records-analyser |
 | Images | `.png` `.jpg` `.gif` `.bmp` `.tiff` `.webp` | image-analyser |
 | Diagrams | `.mmd` `.mermaid` `.puml` `.plantuml` `.dot` `.gv` `.drawio` | diagram-analyser |
-| AI-chat transcripts, reflective journals | pinned via the rubric's `signals_of_interest` | conversation- / reflection-analyser (explicit-only) |
+| AI-chat transcripts, reflective journals | detected heuristically in prose (role markers, journal cues, folder/name clues) | conversation- / reflection-analyser |
+| Document metadata (any office file) | always — a second pass over docx/pptx/xlsx/pdf | provenance-analyser (editing time, authorship, revisions) |
+
+**Read auto-detected signals with care.** Chats and journals are found by
+*heuristics* (they can misfire), and every auto-detected signal set is labelled
+with the file it came from — the Setup screen explains this and lets you turn the
+second passes off. Also note: conversation *analytics* are fully offline, but its
+*critical-thinking* tier needs an LLM provider; without one you still get turns,
+questions, and pushback signals.
 
 New analysers are plugins: write one against the family contract (a `manifest`
 plus `<command> <file> --json` → JSON on stdout), add it to `sidecarPipSpecs`

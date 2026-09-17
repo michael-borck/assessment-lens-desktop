@@ -36,6 +36,7 @@ export function App() {
   const [criteriaMax, setCriteriaMax] = useState<Record<string, number>>({});
   const [submissionsPath, setSubmissionsPath] = useState<string | null>(null);
   const [llm, setLlm] = useState(false);
+  const [heuristics, setHeuristics] = useState(true);
 
   const [run, setRun] = useState<RunState>("idle");
   const [progress, setProgress] = useState<string[]>([]);
@@ -58,6 +59,7 @@ export function App() {
     window.lens.loadLastRun().then((r) => {
       if (r && r.result && r.rubric) setLastRun(r);
     });
+    window.lens.config().then((c) => setHeuristics(c.settings.heuristics !== false));
     return () => {
       offStatus();
       offPhase();
@@ -289,6 +291,11 @@ export function App() {
             if (path) setSubmissionsPath(path);
           }}
           onLlm={setLlm}
+          heuristics={heuristics}
+          onHeuristics={(enabled) => {
+            setHeuristics(enabled);
+            void window.lens.setHeuristics(enabled);
+          }}
           onStart={() => {
             setScreen("running");
             void startAssessment();

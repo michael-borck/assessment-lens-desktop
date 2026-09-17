@@ -28,11 +28,13 @@ module.exports = {
   // Pin the lens per app release; bump deliberately with the app.
   sidecarPipSpecs: [
     "assessment-lens[serve,analysers,distinctiveness,llm]==0.5.2",
-    "auto-analyser", // the router bundle-analyser shells out to
+    "auto-analyser>=0.8.0", // the router bundle-analyser shells out to (0.8: multi-cascade + heuristics)
+    "bundle-analyser>=0.6.0", // promoted as a dependency pin too — cascade promotion needs 0.6
     "document-analyser[embeddings]", // reports, essays (the universal deliverable)
     "code-analyser[embeddings]",
     "conversation-analyser[embeddings]", // AI-chat transcripts
     "reflection-analyser[embeddings]", // reflective journals
+    "provenance-analyser", // document metadata: creator app, editing time, revisions
     // Broader submission coverage — auto-analyser routes by extension, so an
     // analyser must be installed here for its file types to produce signals.
     // Heavy first-run (the installer pins CPU-only torch); speech/whisper models

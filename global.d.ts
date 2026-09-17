@@ -23,7 +23,7 @@ export interface AppConfig {
     totalMemGB: number;
     recommendedTier: "small" | "large";
   };
-  settings: { ollamaModel?: string };
+  settings: { ollamaModel?: string; heuristics?: boolean };
 }
 
 export interface ApiResponse {
@@ -66,6 +66,7 @@ export interface LensBridge {
   ollamaInstall(): Promise<{ ok: boolean; error?: string }>;
   onOllamaInstallProgress(cb: (p: OllamaProgress) => void): () => void;
   setOllamaModel(modelId: string): Promise<boolean>;
+  setHeuristics(enabled: boolean): Promise<boolean>;
   parseRubric(path: string): Promise<RubricInfo>;
   loadMarks(key: string): Promise<unknown>;
   saveMarks(key: string, sheet: unknown): Promise<boolean>;

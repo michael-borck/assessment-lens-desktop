@@ -21,6 +21,8 @@ interface Props {
   lastRun: { run: LastRun; result: AssessmentResult } | null;
   onResume: () => void;
   onDismissResume: () => void;
+  heuristics: boolean;
+  onHeuristics: (enabled: boolean) => void;
 }
 
 export function SetupScreen(p: Props) {
@@ -134,6 +136,28 @@ export function SetupScreen(p: Props) {
         <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
           Observations, not grades — the app never assigns a mark. Works fully without the AI;
           narration just adds prose bound to the cited evidence.
+        </p>
+      </div>
+
+      <div className="card pad">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={p.heuristics}
+            onChange={(e) => p.onHeuristics(e.target.checked)}
+          />
+          Auto-detect chats, journals &amp; document metadata (heuristic second passes)
+        </label>
+        <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
+          Office documents also get a <strong>provenance</strong> read (editing time, authorship).
+          Prose that <em>looks like</em> a chat transcript or reflective journal gets a second,
+          labelled pass — heuristics can misfire, so each signal shows the file it came from and
+          you decide how much weight to give it. Turning this off keeps only direct file-type
+          analysis.
+        </p>
+        <p className="hint" style={{ margin: "6px 0 0" }}>
+          Note: conversation <em>critical-thinking</em> scoring needs an LLM provider — offline
+          runs still get conversation analytics (turns, questions, pushback) without it.
         </p>
       </div>
 

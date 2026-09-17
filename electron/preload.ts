@@ -53,4 +53,5 @@ contextBridge.exposeInMainWorld("lens", {
   exportCsv: (defaultName: string, csv: string) =>
     ipcRenderer.invoke("export:csv", defaultName, csv),
   openPath: (path: string) => ipcRenderer.invoke("open:path", path),
+  setHeuristics: (enabled: boolean) => ipcRenderer.invoke("settings:setHeuristics", enabled),
 });

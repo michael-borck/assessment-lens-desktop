@@ -113,7 +113,14 @@ function writeRouterConfig(dir: string): void {
   const members = CONFIG.sidecarPipSpecs
     .map((s) => s.split(/[[=]/)[0].trim())
     .filter((n) => n.endsWith("-analyser") && n !== "auto-analyser");
-  const yaml = ["# Written by Assessment Lens — routes to the bundled local CLIs.", "analysers:", ...members.map((m) => `  ${m}: { type: cli, command: ${m} }`), ""].join("\n");
+  const yaml = [
+    "# Written by Assessment Lens — routes to the bundled local CLIs.",
+    "analysers:",
+    ...members.map((m) => `  ${m}: { type: cli, command: ${m} }`),
+    // Heuristic cascade passes are user-gated (Setup screen toggle); default on.
+    `cascades:\n  enabled: ${loadSettings().heuristics !== false}`,
+    "",
+  ].join("\n");
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "auto-analyser.yaml"), yaml);
 }
@@ -247,6 +254,14 @@ function registerIpc(): void {
     const allowed = Object.values(CONFIG.ollama.models).map((m) => (m as { id: string }).id);
     if (!allowed.includes(modelId)) throw new Error(`non-curated model: ${modelId}`);
     saveSettings({ ollamaModel: modelId });
+    await restartSidecar();
+    return true;
+  });
+  // Heuristic cascade passes: persist + rewrite the router config (the gate is
+  // read there) + restart the engine so it takes effect immediately.
+  ipcMain.handle("settings:setHeuristics", async (_e, enabled: boolean) => {
+    saveSettings({ heuristics: !!enabled });
+    writeRouterConfig(paths().runtimeDir);
     await restartSidecar();
     return true;
   });
