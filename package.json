@@ -1,7 +1,7 @@
 {
   "name": "assessment-lens-desktop",
   "version": "0.2.0",
-  "description": "Mark a cohort with the analyser family \u2014 observations, not grades. Fully local; private by design.",
+  "description": "Mark a cohort with the analyser family — observations, not grades. Fully local; private by design.",
   "author": {
     "name": "Michael Borck",
     "email": "michael@borck.dev"
@@ -26,7 +26,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
