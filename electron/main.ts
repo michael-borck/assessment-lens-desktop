@@ -71,7 +71,13 @@ function createWindow(): void {
 }
 
 function send(channel: string, payload: unknown): void {
-  win?.webContents.send(channel, payload);
+  // The window can be destroyed while the sidecar still streams (macOS keeps
+  // the app alive after the window closes; quit races the engine's shutdown
+  // output). Guard or every log chunk becomes an "Object has been destroyed"
+  // uncaught exception.
+  if (win && !win.isDestroyed()) {
+    win.webContents.send(channel, payload);
+  }
 }
 
 /** The narrate/draft model env, from the user's persisted tier choice. */
