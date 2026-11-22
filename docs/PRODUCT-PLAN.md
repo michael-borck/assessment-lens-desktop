@@ -3,8 +3,8 @@
 Working plan (2026-06). Supersedes the design notes in
 `~/Projects/lens/assessment-rename-and-ux-plan.md §4`; that file still holds the
 family-level naming decisions (assessment-lens is a product, not an engine; no
-rename; no monorepo). The interactive prototype lives in `src/prototype/`
-(`npm run prototype`, variants A–J) and feeds the screens below.
+rename; no monorepo). The interactive review-screen prototype that fed the
+screens below has been retired; its decisions are captured in this plan.
 
 ## 1. What it is
 A desktop app for educators that turns the lens/analyser family's many automated

@@ -1,7 +1,7 @@
 {
   "name": "assessment-lens-desktop",
-  "version": "0.2.0",
-  "description": "Mark a cohort with the analyser family — observations, not grades. Fully local; private by design.",
+  "version": "0.2.1",
+  "description": "Mark a cohort with the analyser family \u2014 observations, not grades. Fully local; private by design.",
   "author": {
     "name": "Michael Borck",
     "email": "michael@borck.dev"
@@ -14,9 +14,7 @@
     "package": "electron-vite build && electron-builder --config electron-builder.config.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "prototype": "vite --config vite.prototype.config.ts",
-    "app-dev": "vite --config vite.app.config.ts"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "electron-updater": "^6.3.0",
