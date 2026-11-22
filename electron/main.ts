@@ -117,7 +117,9 @@ async function restartSidecar(): Promise<void> {
  */
 function writeRouterConfig(dir: string): void {
   const members = CONFIG.sidecarPipSpecs
-    .map((s) => s.split(/[[=]/)[0].trim())
+    // Match the bare package name so `video-analyser>=0.13.0` yields
+    // "video-analyser" (splitting on `=` would leave a trailing ">" and drop it).
+    .map((s) => s.trim().match(/^[A-Za-z0-9._-]+/)?.[0] ?? "")
     .filter((n) => n.endsWith("-analyser") && n !== "auto-analyser");
   const yaml = [
     "# Written by Assessment Lens — routes to the bundled local CLIs.",
