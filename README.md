@@ -87,19 +87,20 @@ main process. See `app.config.cjs` for the one place this app configures itself
 
 ```bash
 npm install
-npm run dev      # electron-vite dev
-npm run package  # build + electron-builder installers
+npm run dev       # electron-vite dev
+npm run typecheck
+npm test          # vitest unit tests
+npm run package   # build + electron-builder installers
 ```
 
 ## Status
 
-**v0.2 — the marking workflow is real.** Setup → run → cohort triage → student
+**v0.2.1 — the marking workflow is real.** Setup → run → cohort triage → student
 review (per-criterion marks + comments) → marks-CSV export, wired to the
 `assessment-lens` sidecar end-to-end (verified against a live engine run), with
-local marks persistence + resume-after-restart. The `src/app/` + `src/prototype/`
-folders hold the earlier mock shell / prototype variants (unused by the live
-entry). Deferred per the [product plan](docs/PRODUCT-PLAN.md): units/assessments
-hierarchy, LMS ingestion, signal→rubric mapping UI, cloud providers, group/individual
-collation. Still needs per-OS installer verification (see the family
+local marks persistence + resume-after-restart. Deferred per the
+[product plan](docs/PRODUCT-PLAN.md): units/assessments hierarchy, LMS ingestion,
+signal→rubric mapping UI, cloud providers, group/individual collation. Still needs
+per-OS installer verification (see the family
 [desktop design doc](https://michael-borck.github.io/lens-analysers/docs/DESKTOP-APPS-DESIGN.html)).
-`app.config.cjs` installs `assessment-lens==0.5.2` from PyPI on first run.
+`app.config.cjs` installs `assessment-lens==0.5.3` from PyPI on first run.
